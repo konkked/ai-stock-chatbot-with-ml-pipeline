@@ -120,7 +120,6 @@ db.mapping.insertOne({
     }
 });
 
-
 db.mapping.insertOne({
     "source": "raw",
     "name": "weekly_stats",
