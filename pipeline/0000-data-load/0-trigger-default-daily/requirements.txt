@@ -1,0 +1,4 @@
+kafka-python
+yfinance
+yahoo_fin
+schedule

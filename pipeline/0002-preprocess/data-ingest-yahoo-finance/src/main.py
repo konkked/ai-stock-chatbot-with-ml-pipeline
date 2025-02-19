@@ -1,37 +1,36 @@
-from ingest_data import ingest_data
 from message_producer import MessageProducer
 from message_consumer import MessageConsumer
-from mongodb_writer import MongoDBWriter
 import time
 from threading import Timer
+from stock_data_processor import StockStatsDataProcessor
 
 def main():
     bootstrap_servers = 'kfs.stockiyt.com:9092'
-    consuming_topic = 'update-tickers'
-    consumer = MessageConsumer(bootstrap_servers, consuming_topic)
-    producing_topic = 'ingest-raw-data'
-    producer = MessageProducer(bootstrap_servers, producing_topic)
-    tickers = []
+    consuming_topic = 'ingest-raw-data'
+    processor = StockStatsDataProcessor('mongodb://db.stockiyt.com:27017/', 'stokiyt')
+    producing_topic = 'engineer-features'
+    tickers = set()
     start_time = time.time()
-    mongo_db_writer =  MongoDBWriter('mongodb://db.stockiyt.com:27017/', 'stokiyt', 'raw')
+    consumer = MessageConsumer(bootstrap_servers, consuming_topic)
+    producer = MessageProducer(bootstrap_servers, producing_topic)
 
-    def aggregate_and_send():
+    def preprocess_and_send():
         nonlocal tickers
         if tickers:
-            result = ingest_data(mongo_db_writer, tickers)
-            producer.send_message(result)
+            processor.process_stock_data(tickers)
+            producer.send_message(tickers)
             tickers = []
 
     def consume_message(msg):
         nonlocal tickers
-        tickers.append(msg)
+        tickers.add(msg)
         if len(tickers) >= 10:
-            aggregate_and_send()
+            preprocess_and_send()
 
     def periodic_check():
         nonlocal start_time
         if (time.time() - start_time) >= 300:
-            aggregate_and_send()
+            preprocess_and_send()
             start_time = time.time()
         Timer(300, periodic_check).start()
 
